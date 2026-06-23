@@ -26,8 +26,8 @@
       }
 
       html, body {
-        height: 100%;
-        overflow: hidden;
+        min-height: 100%;
+        overflow-x: hidden;
       }
 
       body {
@@ -38,21 +38,22 @@
       }
 
       .app {
-        height: 100vh;
-        height: 100dvh;
+        min-height: 100vh;
+        min-height: 100dvh;
         display: flex;
         flex-direction: column;
         align-items: center;
         padding: 0;
         background: var(--bg);
-        overflow: hidden;
       }
 
       .main-area {
         flex: 1;
         width: 100%;
         position: relative;
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -726,6 +727,90 @@
         display: none !important;
       }
 
+      @media (max-width: 600px) {
+        header {
+          padding: 0.65rem 0.75rem 0.75rem;
+        }
+
+        .logo {
+          font-size: 2.25rem;
+          margin-bottom: 0.25rem;
+        }
+
+        h1 {
+          font-size: 1.5rem;
+        }
+
+        .tagline {
+          font-size: 0.9rem;
+        }
+
+        .feedback-btn,
+        .lang-toggle {
+          top: 0.5rem;
+          font-size: 0.78rem;
+          padding: 0.35rem 0.55rem;
+          min-width: auto;
+        }
+
+        .feedback-btn {
+          left: 0.5rem;
+        }
+
+        .lang-picker {
+          top: 0.5rem;
+          right: 0.5rem;
+        }
+
+        .panel {
+          padding: 1rem;
+          margin-bottom: 0.5rem;
+        }
+
+        #gameScreen {
+          gap: 0.75rem;
+          padding-bottom: 5rem;
+        }
+
+        .flag-box {
+          min-height: 120px;
+          padding: 0.65rem;
+        }
+
+        .flag-box img {
+          max-height: 100px;
+        }
+
+        .question {
+          font-size: 1rem;
+        }
+
+        .answer-btn {
+          padding: 0.7rem 0.55rem;
+          font-size: 0.88rem;
+        }
+
+        .feedback {
+          font-size: 0.95rem;
+          min-height: 1.25rem;
+        }
+
+        #nextBtn:not(.hidden) {
+          position: fixed;
+          bottom: 3.25rem;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 30;
+          width: calc(100% - 2rem);
+          max-width: 300px;
+          box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+        }
+
+        #nextBtn:not(.hidden):active {
+          transform: translateX(-50%) scale(0.98);
+        }
+      }
+
       @media (max-width: 420px) {
         .answers {
           grid-template-columns: 1fr;
@@ -854,17 +939,22 @@
 
       var COUNTRIES = {
         easy: ["us","ca","mx","br","gb","fr","de","it","es","jp","cn","in","au","eg","za","ar","ru","kr","ie","se"],
-        medium: ["us","ca","mx","br","gb","fr","de","it","es","jp","cn","in","au","eg","za","ar","ru","kr","ie","se","no","fi","nl","be","ch","at","pl","gr","tr","pt","th","vn","id","ph","nz","cl","co","pe","ng","ke"],
-        hard: ["us","ca","mx","br","gb","fr","de","it","es","jp","cn","in","au","eg","za","ar","ru","kr","ie","se","no","fi","nl","be","ch","at","pl","gr","tr","pt","th","vn","id","ph","nz","cl","co","pe","ng","ke","ma","sa","ae","il","ua","cz","hu","ro","hr","is","dk","pk","bd","my","sg","cu","jm","cr","et","gh"],
+        medium: ["af","am","ao","at","az","bb","be","bf","bg","bj","bn","bo","bs","bt","bw","bz","cd","cf","ch","cl","cm","co","cv","cy","cz","dj","dk","do","dz","ec","ee","er","fi","gq","gr","hr","hu","id","ke","kh","km","ng","nl","no","nz","pe","ph","pl","pt","ro","sv","td","th","tr","vn"],
+        hard: ["ae","bd","cg","ci","cr","cu","eh","et","fj","ga","ge","gh","gm","gn","gt","gw","hn","ht","il","iq","ir","is","jm","jo","kp","kw","kz","la","lb","lk","lr","ls","lt","lu","lv","ly","ma","mg","ml","mm","mn","mr","mt","mu","mv","mw","my","mz","na","ne","ni","np","om","pa","pg","pk","pw","py","qa","rs","rw","sa","sb","sd","sg","si","sk","sl","sn","so","ss","st","sy","sz","tg","tl","tn","to","tt","tw","tz","ua","ug","uy","uz","ve","vu","ws","ye","zm","zw"],
       };
 
-      var ROUND_SIZE = 10;
+      var ROUND_BY_LEVEL = { easy: 10, medium: 10, hard: 10 };
       var level = "easy";
       var score = 0;
       var questionIndex = 0;
       var questions = [];
       var answered = false;
       var lastFeedback = null;
+      var roundSize = 10;
+
+      function getRoundSize() {
+        return ROUND_BY_LEVEL[level] || 10;
+      }
 
       var startScreen = document.getElementById("startScreen");
       var gameScreen = document.getElementById("gameScreen");
@@ -895,8 +985,9 @@
       }
 
       function questionLabel(num) {
-        if (lang === "zh") return "第 " + num + " / " + ROUND_SIZE + " 题";
-        return t("question") + " " + num + " / " + ROUND_SIZE;
+        var total = getRoundSize();
+        if (lang === "zh") return "第 " + num + " / " + total + " 题";
+        return t("question") + " " + num + " / " + total;
       }
 
       function buildLangMenu() {
@@ -1023,13 +1114,15 @@
 
       function startGame(chosenLevel) {
         level = chosenLevel;
+        roundSize = getRoundSize();
         score = 0;
         questionIndex = 0;
-        questions = shuffle(COUNTRIES[level]).slice(0, ROUND_SIZE);
+        questions = shuffle(COUNTRIES[level]).slice(0, roundSize);
         scoreEl.textContent = "0";
         lastFeedback = null;
         showScreen(gameScreen);
         showQuestion();
+        window.scrollTo(0, 0);
       }
 
       function showQuestion() {
@@ -1042,7 +1135,7 @@
         var currentCode = questions[questionIndex];
         roundLabel.textContent = questionLabel(questionIndex + 1);
         progressFill.style.width =
-          ((questionIndex + 1) / ROUND_SIZE) * 100 + "%";
+          ((questionIndex + 1) / roundSize) * 100 + "%";
 
         flagImg.src = "https://flagcdn.com/w320/" + currentCode + ".png";
         flagImg.alt = t("flagAlt");
@@ -1093,15 +1186,20 @@
         }
 
         nextBtn.classList.remove("hidden");
+        if (window.innerWidth <= 600) {
+          setTimeout(function () {
+            nextBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }, 100);
+        }
       }
 
       function updateResultMessage() {
         var msg;
-        if (score === ROUND_SIZE) {
+        if (score === roundSize) {
           msg = t("perfect");
-        } else if (score >= 8) {
+        } else if (score >= Math.ceil(roundSize * 0.8)) {
           msg = t("amazing");
-        } else if (score >= 5) {
+        } else if (score >= Math.ceil(roundSize * 0.5)) {
           msg = t("okMessages")[Math.floor(Math.random() * t("okMessages").length)];
         } else {
           msg = t("keepPracticing");
@@ -1111,7 +1209,7 @@
 
       function finishRound() {
         document.getElementById("finalScore").textContent =
-          score + " / " + ROUND_SIZE;
+          score + " / " + roundSize;
         updateResultMessage();
         showScreen(resultScreen);
       }
@@ -1124,7 +1222,7 @@
 
       nextBtn.onclick = function () {
         questionIndex++;
-        if (questionIndex >= ROUND_SIZE) {
+        if (questionIndex >= roundSize) {
           finishRound();
         } else {
           showQuestion();
@@ -1420,19 +1518,7 @@
         if (!adminPanelModal.classList.contains("hidden")) closeAdminPanel();
       });
 
-      var BG_FLAG_CODES = [
-        "us","gb","fr","de","it","es","jp","cn","in","br","ca","au","mx","kr","ru","za",
-        "ar","eg","ng","ke","se","no","fi","nl","be","ch","at","pl","ie","pt","gr","tr",
-        "th","vn","id","ph","my","sg","nz","cl","co","pe","sa","ae","il","ua","cz","hu",
-        "ro","hr","is","dk","pk","bd","ma","cu","jm","cr","et","gh","tw","hk","sk","si",
-        "bg","lt","lv","ee","lu","mt","cy","by","md","ge","am","az","kz","uz","qa","kw",
-        "om","ye","iq","ir","af","np","lk","mm","kh","la","mn","bo","py","uy","ve","ec",
-        "gt","hn","sv","ni","pa","do","ht","bb","tt","bs","jm","sn","ci","cm","tz","ug",
-        "rw","zm","zw","bw","na","mz","ao","cd","sd","ly","tn","dz","mr","ml","bf","ne",
-        "td","cf","cg","ga","gq","st","cv","gm","gw","sl","lr","tg","bj","mw","mg","mu",
-        "sc","km","dj","so","er","ss","ye","jo","lb","sy","ps","bh","bt","mv","tl","ws",
-        "fj","pg","sb","vu","nr","pw","fm","mh","ki","tv","to","ws","as","gu","mp","pr",
-      ];
+      var BG_FLAG_CODES = ["af","dz","ao","ar","am","au","at","az","bs","bd","bb","be","bz","bj","bt","bo","bw","br","bn","bg","bf","kh","cm","ca","cv","cf","td","cl","cn","co","km","cr","hr","cu","cy","cz","cd","dk","dj","do","ec","eg","sv","gq","er","ee","sz","et","fj","fi","fr","ga","gm","ge","de","gh","gr","gt","gn","gw","ht","hn","hu","is","in","id","ir","iq","ie","il","it","ci","jm","jp","jo","kz","ke","kw","la","lv","lb","ls","lr","ly","lt","lu","mg","mw","my","mv","ml","mt","mr","mu","mx","mn","ma","mz","mm","na","np","nl","nz","ni","ne","ng","kp","no","om","pk","pw","pa","pg","py","pe","ph","pl","pt","qa","cg","ro","ru","rw","ws","sa","sn","rs","sl","sg","sk","si","sb","so","za","kr","ss","es","lk","sd","se","ch","sy","st","tw","tz","th","tl","tg","to","tt","tn","tr","ug","ua","ae","gb","us","uy","uz","vu","ve","vn","eh","ye","zm","zw"];
 
       var FEATURED_FLAGS = ["us", "gb", "es"];
 
