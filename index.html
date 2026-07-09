@@ -601,6 +601,19 @@
         font-size: 0.92rem;
       }
 
+      .level-btn.selected {
+        border-color: var(--blue);
+        background: #EFF6FF;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+      }
+
+      .level-badge {
+        color: var(--blue);
+        font-size: 0.88rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
       .score-bar {
         display: flex;
         justify-content: space-between;
@@ -863,6 +876,7 @@
         <div class="screen" id="gameScreen">
           <div class="score-bar">
             <span id="roundLabel">Question 1 / 10</span>
+            <span id="levelBadge" class="level-badge"></span>
             <span><span id="scoreLabel">Score</span>: <span class="score" id="score">0</span></span>
           </div>
           <div class="progress" aria-hidden="true">
@@ -938,12 +952,39 @@
       if (LANGS.indexOf(lang) === -1) lang = "en";
 
       var COUNTRIES = {
-        easy: ["us","ca","mx","br","gb","fr","de","it","es","jp","cn","in","au","eg","za","ar","ru","kr","ie","se"],
-        medium: ["af","am","ao","at","az","bb","be","bf","bg","bj","bn","bo","bs","bt","bw","bz","cd","cf","ch","cl","cm","co","cv","cy","cz","dj","dk","do","dz","ec","ee","er","fi","gq","gr","hr","hu","id","ke","kh","km","ng","nl","no","nz","pe","ph","pl","pt","ro","sv","td","th","tr","vn"],
-        hard: ["ae","bd","cg","ci","cr","cu","eh","et","fj","ga","ge","gh","gm","gn","gt","gw","hn","ht","il","iq","ir","is","jm","jo","kp","kw","kz","la","lb","lk","lr","ls","lt","lu","lv","ly","ma","mg","ml","mm","mn","mr","mt","mu","mv","mw","my","mz","na","ne","ni","np","om","pa","pg","pk","pw","py","qa","rs","rw","sa","sb","sd","sg","si","sk","sl","sn","so","ss","st","sy","sz","tg","tl","tn","to","tt","tw","tz","ua","ug","uy","uz","ve","vu","ws","ye","zm","zw"],
+        easy: ["us","gb","fr","de","it","es","jp","cn","in","au","ca","mx","br","ru","kr","eg","za","ar","nl","ch","se","ie","be","at","pl"],
+        medium: ["ae","am","ao","az","bd","bg","bo","cl","cm","co","cr","cu","cy","cz","dk","do","dz","ec","ee","et","fi","ge","gh","gr","gt","hn","hr","hu","id","il","iq","ir","is","jm","jo","ke","kw","kz","lb","lk","lt","lu","lv","ma","mt","my","mz","na","ng","ni","no","nz","pe","ph","pk","pt","py","qa","ro","rs","sa","sd","sg","si","sk","sv","sy","th","tn","tr","tw","tz","ua","ug","uy","uz","ve","vn"],
+        hard: ["af","bb","bf","bj","bn","bs","bt","bw","bz","cd","cf","cg","ci","cv","dj","eh","er","fj","ga","gm","gn","gq","gw","ht","kh","km","kp","la","lr","ls","ly","mg","ml","mm","mn","mr","mu","mv","mw","ne","np","om","pa","pg","pw","rw","sb","sl","sn","so","ss","st","sz","td","tg","tl","to","tt","vu","ws","ye","zm","zw"],
       };
 
-      var ROUND_BY_LEVEL = { easy: 10, medium: 10, hard: 10 };
+      var REGIONS = {
+        northAmerica: ["us","ca","mx","gt","hn","ni","sv","cr","pa","cu","jm","ht","do","tt","bs","bz"],
+        southAmerica: ["br","ar","co","pe","cl","ve","ec","bo","py","uy"],
+        europe: ["gb","fr","de","it","es","nl","ch","be","at","pl","se","ie","no","fi","dk","pt","gr","cz","hu","ro","hr","ua","ru","is","ee","lv","lt","sk","si","bg","rs"],
+        africa: ["eg","za","ma","ng","ke","gh","et","tz","ug","zm","zw","sn","ci","cm","ao","mz","na","bw","mg","cd","cg","ml","bf","ne","mr","gm","gn","sl","lr","tg","bj","mw","ls","sz","st","cv","gw","gq","er","dj","km","rw","so","ss","sd","ly","tn","dz","td","cf"],
+        middleEast: ["sa","ae","il","tr","ir","iq","jo","lb","sy","ye","kw","qa","om"],
+        asia: ["jp","cn","in","kr","th","vn","id","ph","my","sg","tw","pk","bd","np","lk","mm","kh","la","mn","kz","uz","az","am","ge","af","kp"],
+        oceania: ["au","nz","fj","pg","ws","sb","vu","pw","to"],
+      };
+
+      var CODE_TO_REGION = {};
+      Object.keys(REGIONS).forEach(function (region) {
+        REGIONS[region].forEach(function (code) {
+          CODE_TO_REGION[code] = region;
+        });
+      });
+
+      var LEVEL_CONFIG = {
+        easy: { wrongCount: 3, questions: 10 },
+        medium: { wrongCount: 3, questions: 10 },
+        hard: { wrongCount: 5, questions: 10 },
+      };
+
+      var ROUND_BY_LEVEL = {
+        easy: LEVEL_CONFIG.easy.questions,
+        medium: LEVEL_CONFIG.medium.questions,
+        hard: LEVEL_CONFIG.hard.questions,
+      };
       var level = "easy";
       var score = 0;
       var questionIndex = 0;
@@ -1058,6 +1099,7 @@
 
         if (gameScreen.classList.contains("active") && questions.length) {
           roundLabel.textContent = questionLabel(questionIndex + 1);
+          updateLevelDisplay();
           flagImg.alt = t("flagAlt");
           refreshAnswerLabels();
           if (lastFeedback) {
@@ -1112,6 +1154,49 @@
         return shuffle(others).slice(0, count);
       }
 
+      function getRegion(code) {
+        return CODE_TO_REGION[code] || "other";
+      }
+
+      function pickDistractors(pool, correctCode, count) {
+        var others = pool.filter(function (code) {
+          return code !== correctCode;
+        });
+
+        if (level === "easy") {
+          var correctRegion = getRegion(correctCode);
+          var differentRegion = others.filter(function (code) {
+            return getRegion(code) !== correctRegion;
+          });
+          var easyPool = differentRegion.length >= count ? differentRegion : others;
+          return shuffle(easyPool).slice(0, count);
+        }
+
+        var region = getRegion(correctCode);
+        var regional = others.filter(function (code) {
+          return getRegion(code) === region;
+        });
+        var picked = shuffle(regional).slice(0, count);
+        if (picked.length < count) {
+          var used = {};
+          picked.forEach(function (code) {
+            used[code] = true;
+          });
+          var rest = others.filter(function (code) {
+            return !used[code];
+          });
+          picked = picked.concat(shuffle(rest).slice(0, count - picked.length));
+        }
+        return picked;
+      }
+
+      function updateLevelDisplay() {
+        document.getElementById("levelBadge").textContent = t(level);
+        document.querySelectorAll(".level-btn").forEach(function (btn) {
+          btn.classList.toggle("selected", btn.getAttribute("data-level") === level);
+        });
+      }
+
       function startGame(chosenLevel) {
         level = chosenLevel;
         roundSize = getRoundSize();
@@ -1120,6 +1205,7 @@
         questions = shuffle(COUNTRIES[level]).slice(0, roundSize);
         scoreEl.textContent = "0";
         lastFeedback = null;
+        updateLevelDisplay();
         showScreen(gameScreen);
         showQuestion();
         window.scrollTo(0, 0);
@@ -1140,8 +1226,11 @@
         flagImg.src = "https://flagcdn.com/w320/" + currentCode + ".png";
         flagImg.alt = t("flagAlt");
 
-        var wrongChoices = pickRandomOthers(COUNTRIES[level], currentCode, 3);
+        var wrongCount = (LEVEL_CONFIG[level] || LEVEL_CONFIG.easy).wrongCount;
+        var wrongChoices = pickDistractors(COUNTRIES[level], currentCode, wrongCount);
         var choices = shuffle(wrongChoices.concat([currentCode]));
+
+        answersEl.className = wrongCount > 3 ? "answers many-choices" : "answers";
 
         answersEl.innerHTML = "";
         choices.forEach(function (code) {
@@ -1234,6 +1323,7 @@
       };
 
       document.getElementById("changeLevelBtn").onclick = function () {
+        updateLevelDisplay();
         showScreen(startScreen);
       };
 
